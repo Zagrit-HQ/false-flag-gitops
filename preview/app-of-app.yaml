@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: falseflag-previews
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: falseflag
+    falseflag.dev/environment: preview
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Zagrit-HQ/false-flag-gitops.git
+    targetRevision: refs/heads/main
+    path: preview
+    directory:
+      recurse: true
+      include: "**/app.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

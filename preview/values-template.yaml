@@ -1,0 +1,7 @@
+image:
+  repository: registry.depot.dev/mr31tm4wc4
+  pullPolicy: Always
+
+api:
+  baseURL: http://falseflag-api.__NAMESPACE__.svc.cluster.local:8090
+  actor: controller/falseflag-operator-preview-__ENVIRONMENT__

@@ -1,0 +1,57 @@
+name: delete-preview
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Preview environment slug to remove.
+        required: true
+        type: string
+    secrets:
+      gitops-token:
+        description: Token with write access to Zagrit-HQ/false-flag-gitops.
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  delete-preview:
+    name: Delete preview app
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: Zagrit-HQ/false-flag-gitops
+          token: ${{ secrets.gitops-token }}
+
+      - name: Remove preview manifests
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+
+          if ! printf '%s' "${ENVIRONMENT}" | grep -Eq '^[a-z0-9][a-z0-9-]{0,62}$'; then
+            echo "environment must match ^[a-z0-9][a-z0-9-]{0,62}$"
+            exit 1
+          fi
+
+          rm -rf "preview/${ENVIRONMENT}"
+
+      - name: Commit preview removal
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          git config user.name "falseflag-preview-bot"
+          git config user.email "falseflag-preview-bot@users.noreply.github.com"
+          git add -A "preview/${ENVIRONMENT}"
+
+          if git diff --cached --quiet; then
+            echo "Preview ${ENVIRONMENT} was already absent."
+            exit 0
+          fi
+
+          git commit -m "preview: remove ${ENVIRONMENT}"
+          git push

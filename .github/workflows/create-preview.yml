@@ -1,0 +1,96 @@
+name: create-preview
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Preview environment slug, usually the branch slug or PR number.
+        required: true
+        type: string
+      branch:
+        description: Branch in Zagrit-HQ/false-flag-demo to deploy.
+        required: true
+        type: string
+      pr:
+        description: Pull request number associated with the preview.
+        required: true
+        type: string
+    secrets:
+      gitops-token:
+        description: Token with write access to Zagrit-HQ/false-flag-gitops.
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  create-preview:
+    name: Create preview app
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: Zagrit-HQ/false-flag-gitops
+          token: ${{ secrets.gitops-token }}
+
+      - name: Render preview manifests
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          BRANCH: ${{ inputs.branch }}
+          PR_NUMBER: ${{ inputs.pr }}
+        run: |
+          set -euo pipefail
+
+          if ! printf '%s' "${ENVIRONMENT}" | grep -Eq '^[a-z0-9][a-z0-9-]{0,62}$'; then
+            echo "environment must match ^[a-z0-9][a-z0-9-]{0,62}$"
+            exit 1
+          fi
+
+          namespace="falseflag-preview-${ENVIRONMENT}"
+          mkdir -p "preview/${ENVIRONMENT}"
+          export CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          node <<'NODE'
+          const fs = require("fs");
+
+          const replacements = {
+            "__ENVIRONMENT__": process.env.ENVIRONMENT,
+            "__BRANCH__": process.env.BRANCH,
+            "__PR_NUMBER__": process.env.PR_NUMBER,
+            "__NAMESPACE__": `falseflag-preview-${process.env.ENVIRONMENT}`,
+            "__CREATED_AT__": process.env.CREATED_AT,
+          };
+
+          function render(templatePath, outputPath) {
+            let text = fs.readFileSync(templatePath, "utf8");
+            for (const [token, value] of Object.entries(replacements)) {
+              text = text.split(token).join(value);
+            }
+            fs.writeFileSync(outputPath, text);
+          }
+
+          render("preview/app-template.yaml", `preview/${process.env.ENVIRONMENT}/app.yaml`);
+          render("preview/values-template.yaml", `preview/${process.env.ENVIRONMENT}/values.yaml`);
+          NODE
+
+      - name: Commit preview app
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          BRANCH: ${{ inputs.branch }}
+          PR_NUMBER: ${{ inputs.pr }}
+        run: |
+          set -euo pipefail
+          git config user.name "falseflag-preview-bot"
+          git config user.email "falseflag-preview-bot@users.noreply.github.com"
+          git add "preview/${ENVIRONMENT}/app.yaml" "preview/${ENVIRONMENT}/values.yaml"
+
+          if git diff --cached --quiet; then
+            echo "Preview ${ENVIRONMENT} is already up to date."
+            exit 0
+          fi
+
+          git commit -m "preview: deploy ${ENVIRONMENT}" \
+            -m "PR: ${PR_NUMBER}" \
+            -m "Branch: ${BRANCH}"
+          git push

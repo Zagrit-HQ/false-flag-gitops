@@ -1,0 +1,87 @@
+name: cleanup-previews
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PREVIEW_TTL_DAYS: "14"
+
+jobs:
+  cleanup-previews:
+    name: Cleanup stale preview apps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+
+      - name: Remove previews older than TTL
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+
+          const ttlDays = Number(process.env.PREVIEW_TTL_DAYS || "14");
+          const cutoff = Date.now() - ttlDays * 24 * 60 * 60 * 1000;
+          let removed = false;
+
+          if (fs.existsSync("preview")) {
+            for (const entry of fs.readdirSync("preview", { withFileTypes: true })) {
+              if (!entry.isDirectory()) continue;
+
+              const previewDir = path.join("preview", entry.name);
+              const appPath = path.join(previewDir, "app.yaml");
+              if (!fs.existsSync(appPath)) continue;
+
+              const app = fs.readFileSync(appPath, "utf8");
+              const match = app.match(/falseflag\.dev\/created-at:\s*"?([^"\n]+)"?/);
+              if (!match) {
+                console.log(`Skipping ${appPath}: missing falseflag.dev/created-at annotation`);
+                continue;
+              }
+
+              const createdAt = match[1].trim();
+              const createdMs = Date.parse(createdAt);
+              if (Number.isNaN(createdMs)) {
+                console.log(`Skipping ${appPath}: invalid falseflag.dev/created-at '${createdAt}'`);
+                continue;
+              }
+
+              if (createdMs <= cutoff) {
+                console.log(`Removing stale preview ${previewDir}; created at ${createdAt}`);
+                fs.rmSync(previewDir, { recursive: true, force: true });
+                removed = true;
+              } else {
+                console.log(`Keeping ${appPath}; created at ${createdAt}`);
+              }
+            }
+          }
+
+          fs.appendFileSync(process.env.GITHUB_ENV, `REMOVED=${removed ? "1" : "0"}\n`);
+          NODE
+
+      - name: Commit cleanup
+        if: env.REMOVED == '1'
+        run: |
+          set -euo pipefail
+          git config user.name "falseflag-preview-bot"
+          git config user.email "falseflag-preview-bot@users.noreply.github.com"
+          git add -A preview
+
+          if git diff --cached --quiet; then
+            echo "No preview cleanup changes to commit."
+            exit 0
+          fi
+
+          git commit -m "preview: cleanup stale environments" \
+            -m "Removed preview environments older than ${PREVIEW_TTL_DAYS} days."
+          git push
+
+      - name: Report no cleanup
+        if: env.REMOVED != '1'
+        run: echo "No preview environments older than ${PREVIEW_TTL_DAYS} days."

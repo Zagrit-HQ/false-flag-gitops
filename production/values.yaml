@@ -1,0 +1,7 @@
+image:
+  repository: ghcr.io/depot/falseflag/operator
+  pullPolicy: IfNotPresent
+
+api:
+  baseURL: http://falseflag-api.falseflag-production.svc.cluster.local:8090
+  actor: controller/falseflag-operator-production

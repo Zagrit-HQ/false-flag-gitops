@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: falseflag-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: falseflag
+    falseflag.dev/environment: staging
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/Zagrit-HQ/false-flag-demo.git
+      targetRevision: refs/heads/main
+      path: deploy/helm/falseflag-operator
+      helm:
+        releaseName: falseflag
+        valueFiles:
+          - $values/staging/values.yaml
+        parameters:
+          - name: image.tag
+            value: $ARGOCD_APP_REVISION_SHORT_8
+            forceString: true
+    - repoURL: https://github.com/Zagrit-HQ/false-flag-gitops.git
+      targetRevision: refs/heads/main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: falseflag-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 20
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 2m
