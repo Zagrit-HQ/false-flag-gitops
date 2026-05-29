@@ -49,3 +49,8 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 ```
 
 This deletes the whole k3d cluster.
+
+## Next Step
+
+- Add Depot Registry authentication to the cluster so Argo-managed workloads can
+  pull commit-tagged preview and staging images from Depot Registry.
