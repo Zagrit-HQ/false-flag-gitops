@@ -1,16 +1,12 @@
 name: delete-preview
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       environment:
         description: Preview environment slug to remove.
         required: true
         type: string
-    secrets:
-      gitops-token:
-        description: Token with write access to Zagrit-HQ/false-flag-gitops.
-        required: true
 
 permissions:
   contents: write
@@ -18,13 +14,12 @@ permissions:
 jobs:
   delete-preview:
     name: Delete preview app
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     steps:
       - name: Checkout GitOps repo
         uses: actions/checkout@v4
         with:
-          repository: Zagrit-HQ/false-flag-gitops
-          token: ${{ secrets.gitops-token }}
+          token: ${{ secrets.FALSE_FLAG_GITOPS_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Remove preview manifests
         env:

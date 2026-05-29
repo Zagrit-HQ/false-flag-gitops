@@ -14,7 +14,7 @@ env:
 jobs:
   cleanup-previews:
     name: Cleanup stale preview apps
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     steps:
       - name: Checkout GitOps repo
         uses: actions/checkout@v4
