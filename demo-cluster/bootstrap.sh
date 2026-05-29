@@ -28,7 +28,7 @@ fi
 kubectl config use-context "k3d-${CLUSTER_NAME}" >/dev/null
 
 kubectl create namespace "${ARGOCD_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -n "${ARGOCD_NAMESPACE}" -f "${ARGOCD_INSTALL_URL}"
+kubectl apply -n "${ARGOCD_NAMESPACE}" --server-side --force-conflicts -f "${ARGOCD_INSTALL_URL}"
 
 kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s
 kubectl -n "${ARGOCD_NAMESPACE}" rollout status deployment/argocd-repo-server --timeout=180s
