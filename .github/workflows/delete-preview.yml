@@ -14,7 +14,7 @@ permissions:
 jobs:
   delete-preview:
     name: Delete preview app
-    runs-on: depot-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout GitOps repo
         uses: actions/checkout@v4
