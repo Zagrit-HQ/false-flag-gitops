@@ -45,6 +45,7 @@ jobs:
       - name: Checkout GitOps repo
         uses: actions/checkout@v4
         with:
+          repository: Zagrit-HQ/false-flag-gitops
           token: ${{ secrets.gitops-token || secrets.GITHUB_TOKEN }}
 
       - name: Render preview manifests
