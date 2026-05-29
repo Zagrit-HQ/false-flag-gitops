@@ -1,6 +1,20 @@
 name: create-preview
 
 on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Preview environment slug, usually the branch slug or PR number.
+        required: true
+        type: string
+      branch:
+        description: Branch in Zagrit-HQ/false-flag-demo to deploy.
+        required: true
+        type: string
+      pr:
+        description: Pull request number associated with the preview.
+        required: true
+        type: string
   workflow_call:
     inputs:
       environment:
@@ -18,7 +32,7 @@ on:
     secrets:
       gitops-token:
         description: Token with write access to Zagrit-HQ/false-flag-gitops.
-        required: true
+        required: false
 
 permissions:
   contents: write
@@ -32,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Zagrit-HQ/false-flag-gitops
-          token: ${{ secrets.gitops-token }}
+          token: ${{ secrets.gitops-token || secrets.GITHUB_TOKEN }}
 
       - name: Render preview manifests
         env:
